@@ -10,7 +10,7 @@ require('chai')
 
 const WarXToken = artifacts.require('WarXToken');
 
-contract('WarXToken', function ([_admin, _, receiver1, receiver2, creator]) {
+contract('WarXToken', function ([_admin, _, investor]) {
 
     beforeEach(async function () {
 
@@ -26,7 +26,7 @@ contract('WarXToken', function ([_admin, _, receiver1, receiver2, creator]) {
 
         this.amount = 10;
 
-        this.mintToken = await this.token.mint(receiver1, this.amount, { from: _admin });
+        this.mintToken = await this.token.mint(investor, this.amount, { from: _admin });
     });
 
     describe('Token Parameters', function () {
@@ -43,9 +43,9 @@ contract('WarXToken', function ([_admin, _, receiver1, receiver2, creator]) {
 
     describe('Token mint, pause & unpause', function () {
         it('should be token mint', async function () {
-            const mintToken = await this.token.mint(receiver1, this.amount, { from: _admin });
+            const mintToken = await this.token.mint(investor, this.amount, { from: _admin });
             BN(mintToken['logs'][0]['args']['value']).toString().should.be.equal(this.amount.toString());
-            mintToken['logs'][0]['args']['to'].should.be.equal(receiver1);
+            mintToken['logs'][0]['args']['to'].should.be.equal(investor);
         });
 
         it('should be token pause', async function () {
@@ -64,28 +64,28 @@ contract('WarXToken', function ([_admin, _, receiver1, receiver2, creator]) {
 
     describe('Token revert mint, pause & unpause ', function () {
         it('should be revert token mint', async function () {
-            await this.token.mint(receiver1, this.amount, { from: receiver1 }).should.be.rejectedWith('revert');
+            await this.token.mint(investor, this.amount, { from: investor }).should.be.rejectedWith('revert');
         });
 
         it('should be revert token pause', async function () {
-            await this.token.pause({ from: receiver1 }).should.be.rejectedWith('revert');
+            await this.token.pause({ from: investor }).should.be.rejectedWith('revert');
         });
 
         it('should be revert token unpause', async function () {
             await this.token.pause({ from: _admin });
-            await this.token.unpause({ from: receiver1 }).should.be.rejectedWith('revert');
+            await this.token.unpause({ from: investor }).should.be.rejectedWith('revert');
         });
     });
 
     describe('Token Supply', function () {
         it('should be check token supply', async function () {
             let tokenSupplyBefore = await this.token.totalSupply();
-            await this.token.mint(receiver1, this.amount, { from: _admin });
+            await this.token.mint(investor, this.amount, { from: _admin });
             let tokenSupplyAfter = await this.token.totalSupply();
             tokenSupplyBefore.should.not.be.equal(tokenSupplyAfter);
         });
     });
-    
+
     describe('Access Controls', () => {
         it('should have the initial minter & pauser roles', async function () {
 
@@ -105,8 +105,8 @@ contract('WarXToken', function ([_admin, _, receiver1, receiver2, creator]) {
 
         it('should be able to mint Tokens', async function () {
 
-            const { logs } = await this.token.mint(receiver1, this.amount, { from: _admin });
-            logs[0]['args']['to'].should.be.equal(receiver1);
+            const { logs } = await this.token.mint(investor, this.amount, { from: _admin });
+            logs[0]['args']['to'].should.be.equal(investor);
             BN(logs[0]['args']['value']).should.be.equal((this.amount).toString());
         });
 
@@ -118,16 +118,29 @@ contract('WarXToken', function ([_admin, _, receiver1, receiver2, creator]) {
 
         it("should not be able to mint Tokens from non-minter", async function () {
 
-            await this.token.mint(receiver1, this.amount, { from: receiver1 }).should.be.rejectedWith('revert');
+            await this.token.mint(investor, this.amount, { from: investor }).should.be.rejectedWith('revert');
         });
 
         it("should not be able to pause Token", async function () {
-            await this.token.pause({ from: receiver1 }).should.be.rejectedWith('revert');
+            await this.token.pause({ from: investor }).should.be.rejectedWith('revert');
         });
+        it("should not be able to unpause Token", async function () {
+            await this.token.pause({ from: _admin })
+            await this.token.unpause({ from: investor }).should.be.rejectedWith('revert');
+        });
+        
 
         it("should not be able to mint Tokens when the token is paused", async function () {
             await this.token.pause({ from: _admin });
-            await this.token.mint(receiver1, this.amount, { from: _admin }).should.be.rejectedWith('revert');
+            await this.token.mint(investor, this.amount, { from: _admin }).should.be.rejectedWith('revert');
+        });
+
+        it("should be able to unpause and mint tokens", async function () {
+            await this.token.pause({ from: _admin });
+            await this.token.mint(investor, this.amount, { from: _admin }).should.be.rejectedWith('revert');
+            await this.token.unpause({ from: _admin });
+            await this.token.mint(investor, this.amount, { from: _admin });
+
         });
     })
 
