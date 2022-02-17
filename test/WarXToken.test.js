@@ -14,8 +14,12 @@ contract('WarXToken', function ([_admin, _, receiver1, receiver2, creator]) {
 
     beforeEach(async function () {
 
-        this.symbol = 'MWC';
-        this.name = 'Meta Warriors Token';
+        this.symbol = 'WARX';
+        this.name = 'WarX Token';
+
+        this.minterRole = web3.utils.soliditySha3("MINTER_ROLE");
+        this.pauserRole = web3.utils.soliditySha3("PAUSER_ROLE");
+
 
         /* Deploy Token */
         this.token = await WarXToken.new(this.name, this.symbol);
@@ -58,7 +62,6 @@ contract('WarXToken', function ([_admin, _, receiver1, receiver2, creator]) {
         });
     });
 
-
     describe('Token revert mint, pause & unpause ', function () {
         it('should be revert token mint', async function () {
             await this.token.mint(receiver1, this.amount, { from: receiver1 }).should.be.rejectedWith('revert');
@@ -82,5 +85,50 @@ contract('WarXToken', function ([_admin, _, receiver1, receiver2, creator]) {
             tokenSupplyBefore.should.not.be.equal(tokenSupplyAfter);
         });
     });
+    
+    describe('Access Controls', () => {
+        it('should have the initial minter & pauser roles', async function () {
+
+            const hasMinterRole = await this.token.hasRole(this.minterRole, _admin);
+            const hasPauserRole = await this.token.hasRole(this.pauserRole, _admin);
+            hasMinterRole.should.be.equal(true);
+            hasPauserRole.should.be.equal(true);
+        });
+
+        it('should not have the minter and pauserRoles', async function () {
+
+            const hasMinterRole = await this.token.hasRole(this.minterRole, _);
+            const hasPauserRole = await this.token.hasRole(this.pauserRole, _);
+            hasMinterRole.should.be.equal(false);
+            hasPauserRole.should.be.equal(false);
+        });
+
+        it('should be able to mint Tokens', async function () {
+
+            const { logs } = await this.token.mint(receiver1, this.amount, { from: _admin });
+            logs[0]['args']['to'].should.be.equal(receiver1);
+            BN(logs[0]['args']['value']).should.be.equal((this.amount).toString());
+        });
+
+        it("should be able to pause", async function () {
+
+            const { logs } = await this.token.pause({ from: _admin });
+            logs[0]['args']['0'].should.be.equal(_admin)
+        });
+
+        it("should not be able to mint Tokens from non-minter", async function () {
+
+            await this.token.mint(receiver1, this.amount, { from: receiver1 }).should.be.rejectedWith('revert');
+        });
+
+        it("should not be able to pause Token", async function () {
+            await this.token.pause({ from: receiver1 }).should.be.rejectedWith('revert');
+        });
+
+        it("should not be able to mint Tokens when the token is paused", async function () {
+            await this.token.pause({ from: _admin });
+            await this.token.mint(receiver1, this.amount, { from: _admin }).should.be.rejectedWith('revert');
+        });
+    })
 
 });
